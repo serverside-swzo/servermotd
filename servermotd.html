@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Eco Minecraft Server Status</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <link id="favicon" rel="icon" type="image/png" href="favicon.ico">
+  <style>
+    body {
+      background-color: #0f0f0f;
+      font-family: 'Inter', sans-serif;
+    }
+    .mc-bold { font-weight: bold; }
+    .mc-strike { text-decoration: line-through; }
+    .mc-underline { text-decoration: underline; }
+    .mc-italic { font-style: italic; }
+    .mc-0 { color: #000000; }
+    .mc-1 { color: #0000AA; }
+    .mc-2 { color: #00AA00; }
+    .mc-3 { color: #00AAAA; }
+    .mc-4 { color: #AA0000; }
+    .mc-5 { color: #AA00AA; }
+    .mc-6 { color: #FFAA00; }
+    .mc-7 { color: #AAAAAA; }
+    .mc-8 { color: #555555; }
+    .mc-9 { color: #5555FF; }
+    .mc-a { color: #55FF55; }
+    .mc-b { color: #55FFFF; }
+    .mc-c { color: #FF5555; }
+    .mc-d { color: #FF55FF; }
+    .mc-e { color: #FFFF55; }
+    .mc-f { color: #FFFFFF; }
+  </style>
+</head>
+<body class="text-white min-h-screen flex items-center justify-center p-6">
+
+  <div class="max-w-4xl w-full space-y-8">
+
+    <div class="text-center">
+      <h1 class="text-4xl font-bold mb-2">Minecraft Server Status</h1>
+      <p class="text-gray-400">Tracking server at <span class="text-green-400 font-mono">Hypixel.net</span></p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Server Info Card -->
+      <div class="bg-[#161616] rounded-xl border border-gray-700 p-6 space-y-4 shadow-md">
+        <div id="serverIcon" class="text-center"></div>
+        <p id="status" class="text-lg font-semibold text-center">Checking status...</p>
+        <p id="version" class="text-sm text-center text-gray-400"></p>
+        <div id="motd" class="text-sm text-center"></div>
+        <p id="players" class="text-sm text-center text-gray-400"></p>
+      </div>
+
+      <!-- Player List -->
+      <div class="bg-[#161616] rounded-xl border border-gray-700 p-6 space-y-4 shadow-md">
+        <h2 class="text-xl font-bold text-green-400">Online Players</h2>
+        <ul id="playerList" class="text-sm space-y-3"></ul>
+      </div>
+    </div>
+
+    <div class="text-center text-xs text-gray-600 pt-4">
+      Data updates every 30 seconds • Powered by <a href="https://api.mcsrvstat.us/" class="text-green-400 underline" target="_blank">mcsrvstat.us</a>
+    </div>
+  </div>
+
+  <script>
+    const serverIP = "hypixel.net";
+
+    function parseMotd(motd) {
+      if (!motd) return "";
+      let formattedMotd = motd.replace(/\u00a7([0-9a-f])/g, (match, code) => {
+        return `</span><span class="mc-${code}">`;
+      }).replace(/\u00a7l/g, '<span class="mc-bold">')
+        .replace(/\u00a7m/g, '<span class="mc-strike">')
+        .replace(/\u00a7n/g, '<span class="mc-underline">')
+        .replace(/\u00a7o/g, '<span class="mc-italic">')
+        .replace(/\u00a7r/g, '</span>');
+
+      formattedMotd = formattedMotd.replace(/\u00a7#([0-9a-fA-F]{6})/g, (match, hex) => {
+        return `</span><span style="color: #${hex};">`;
+      }) + '</span>';
+      return formattedMotd.startsWith('</span>') ? formattedMotd.slice(7) : formattedMotd;
+    }
+
+    async function fetchServerStatus() {
+      try {
+        const res = await axios.get(`https://api.mcsrvstat.us/3/${serverIP}`);
+        const data = res.data;
+
+        const status = document.getElementById('status');
+        const version = document.getElementById('version');
+        const motd = document.getElementById('motd');
+        const players = document.getElementById('players');
+        const playerList = document.getElementById('playerList');
+        const serverIcon = document.getElementById('serverIcon');
+
+        if (data.online) {
+          status.innerHTML = `<span class="text-green-400">🟢 Online</span>`;
+          version.innerHTML = `Version: ${data.version}`;
+          motd.innerHTML = `MOTD: ${parseMotd(data.motd?.raw?.join(' ') || '')}`;
+          players.innerHTML = `Players: ${data.players.online} / ${data.players.max}`;
+
+          // Player List
+          playerList.innerHTML = "";
+          if (data.players.list) {
+            data.players.list.forEach(player => {
+              const li = document.createElement("li");
+              li.classList.add("flex", "items-center", "gap-3");
+
+              const img = document.createElement("img");
+              img.src = `https://minotar.net/avatar/${player}/32`;
+              img.alt = player;
+              img.classList.add("rounded", "border", "border-white");
+
+              const span = document.createElement("span");
+              span.textContent = player;
+
+              li.appendChild(img);
+              li.appendChild(span);
+              playerList.appendChild(li);
+            });
+          } else {
+            playerList.innerHTML = "<p class='text-gray-500'>No players online</p>";
+          }
+
+          // Server icon
+          if (data.icon) {
+            serverIcon.innerHTML = `<img src="${data.icon}" alt="Server Icon" class="w-20 h-20 mx-auto rounded-full shadow-md">`;
+            document.getElementById("favicon").href = data.icon;
+          } else {
+            serverIcon.innerHTML = '';
+          }
+
+        } else {
+          status.innerHTML = `<span class="text-red-400">🔴 Offline</span>`;
+          version.innerHTML = '';
+          motd.innerHTML = '';
+          players.innerHTML = '';
+          playerList.innerHTML = '';
+          serverIcon.innerHTML = '';
+        }
+
+      } catch (err) {
+        console.error("Fetch error:", err);
+        document.getElementById('status').innerHTML = `<span class="text-yellow-400">⚠️ Error fetching status</span>`;
+      }
+    }
+
+    fetchServerStatus();
+    setInterval(fetchServerStatus, 30000);
+  </script>
+
+</body>
+</html>
